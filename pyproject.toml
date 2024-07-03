@@ -1,0 +1,18 @@
+[build-system]
+requires = [
+    "setuptools>=54",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Core"
+version = "0.0.5"
+requires-python = ">=3.10"
+dependencies = [
+    "overrides",
+    "numpy",
+    "scipy",
+    "torch",
+    "transformers",
+]
