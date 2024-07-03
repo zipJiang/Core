@@ -10,12 +10,11 @@ This repository contains a minimalist implementation of the `core` package that 
 
 ### Requirements
 
-- Python $>= 3.10$
+- Python >= 3.10
 - numpy
 - scipy
 - torch
 - transformers
-- overrides
 
 ### Installation
 
