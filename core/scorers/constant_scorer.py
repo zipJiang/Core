@@ -1,5 +1,4 @@
 from typing import Text, List, Union, Dict, AsyncGenerator, Tuple, Optional
-from overrides import overrides
 from .scorer import Scorer
 from ..utils.instances import ScorerInstance
 
@@ -15,6 +14,5 @@ class ConstantScorer(Scorer):
         super().__init__()
         self._default_score = score
         
-    @overrides
     def _score(self, instance: ScorerInstance, silent: bool = False) -> Dict[Text, Union[Text, float]]:
         return {"parsed": self._default_score, "raw": None}

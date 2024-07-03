@@ -1,5 +1,4 @@
 torch
 transformers
-overrides
 numpy
 scipy

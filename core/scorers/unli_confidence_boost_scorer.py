@@ -3,7 +3,6 @@ explicitly gives to UNLI being able to hypothetically predict the claim. """
 
 from typing import Text, Dict, List, Union, Optional
 import numpy as np
-from overrides import overrides
 from ..entailers.entailer import Entailer, EntailerInstance
 from ..utils.instances import ScorerInstance
 from .scorer import Scorer
@@ -31,7 +30,6 @@ class UNLIConfidenceBoostScorer(Scorer):
         self._entailer = entailer
         self._cap_entailer = cap_entailer
 
-    @overrides
     def _score(self, instance: ScorerInstance, silent: bool = False) -> Dict[Text, Union[Text, float]]:
         """Here the scorer will score the instance into
         result dict
@@ -73,7 +71,6 @@ class UNLIConfidenceBoostScorer(Scorer):
             **cap_entailer_outputs,
         }
 
-    @overrides
     def _batch_score(
         self, instances: List[ScorerInstance], silent: bool = False
     ) -> List[Dict[Text, Text | float]]:

@@ -2,7 +2,6 @@
 
 
 from .entailer import Entailer, EntailerInstance
-from overrides import overrides
 import torch
 from typing import Text, List
 
@@ -22,7 +21,6 @@ class SoftEntailer(Entailer):
             max_length=max_length,
         )
 
-    @overrides
     def _call_batch(self, instances: List[EntailerInstance]) -> List[float]:
         """This is the actual calling function of the model."""
 
