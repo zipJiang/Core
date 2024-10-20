@@ -3,7 +3,7 @@
 
 from .entailer import Entailer, EntailerInstance
 import torch
-from typing import Text, List
+from typing import Text, List, Optional
 
 
 class SoftEntailer(Entailer):
@@ -13,12 +13,14 @@ class SoftEntailer(Entailer):
         device: Text = "cuda",
         internal_batch_size: int = 16,
         max_length: int = 512,
+        cache_dir: Optional[Text] = None,
     ):
         super().__init__(
             model_name=model_name,
             device=device,
             internal_batch_size=internal_batch_size,
             max_length=max_length,
+            cache_dir=cache_dir,
         )
 
     def _call_batch(self, instances: List[EntailerInstance]) -> List[float]:
@@ -31,6 +33,4 @@ class SoftEntailer(Entailer):
             outputs = self._model(**inputs)
 
         # indices = torch.argmax(outputs.logits, dim=1).int().cpu().numpy().tolist()
-        probs = torch.sigmoid(outputs.logits).squeeze(-1).cpu().numpy().tolist()
-
-        return probs
+        return torch.sigmoid(outputs.logits).squeeze(-1).cpu().numpy().tolist()

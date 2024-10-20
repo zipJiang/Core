@@ -51,7 +51,7 @@ class TestCore(TestCase):
         
         for test_case in self.test_cases:
             
-            @Core()
+            @Core(cache_dir=".cache/", silent=False)
             def decomposer(text) -> List[str]:
                 assert text == test_case["input"], "The input text is not the same as the expected text."
                 return test_case["decomposed"]
@@ -84,14 +84,18 @@ class TestCore(TestCase):
                         device="cpu",
                         internal_batch_size=256,
                         max_length=256,
+                        cache_dir=".cache/"
                     ),
                     cap_entailer=Entailer(
                         model_name="ynie/roberta-large-snli_mnli_fever_anli_R1_R2_R3-nli",
                         device="cpu",
                         internal_batch_size=256,
                         max_length=256,
+                        cache_dir=".cache/"
                     )
                 ),
+                cache_dir=".cache/",
+                silent=False
             )
             def decomposer(text) -> Tuple[List[str], Text]:
                 assert text == test_case["input"], "The input text is not the same as the expected text."

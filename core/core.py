@@ -55,6 +55,7 @@ def Core(
     claim_level_checkworthy_scorer: Optional[Scorer] = None,
     score_combinator: Optional[Callable[[float, float], float]] = None,
     overwrite_entailer: Optional[Entailer] = None,
+    cache_dir: Optional[Text] = None,
     silent: bool = True,
 ):
     """Decorator factory for the Core deduplication algorithm. Add `@Core(...)` to your decomposition function with corresponding parameters to get a Core subselected decomposition.
@@ -80,6 +81,7 @@ def Core(
                 device="cuda:0" if torch.cuda.is_available() else "cpu",
                 internal_batch_size=256,
                 max_length=256,
+                cache_dir=cache_dir,
             )
         )
     )
@@ -142,7 +144,7 @@ def Core(
 
     def _deduplicate(instances: List[CoreInstance]) -> List[int]:
         """Takes in a list of instances and do the deduplication."""
-
+        
         sent_checkworthy_instances = [
             ScorerInstance(text=instance.sent, topic=instance.topic)
             for instance in instances
