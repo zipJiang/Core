@@ -117,6 +117,7 @@ def Core(
     claim_level_checkworthy_scorer: Optional[Scorer] = None,
     score_combinator: Optional[Callable[[float, float], float]] = None,
     overwrite_entailer: Optional[Entailer] = None,
+    cache_dir: Optional[Text] = None,
     silent: bool = False
 ):
     """Decorator factory for the Core deduplication algorithm. Add `@Core(...)` to your decomposition function with corresponding parameters to get a Core subselected decomposition.
@@ -128,6 +129,7 @@ def Core(
     sentence_level_checkworthy_scorer (Optional[Scorer]): A scorer that scores the sentence level checkworthiness, defaults to `ConstantScorer(score=1.0)`.
     claim_level_checkworthy_scorer (Optional[Scorer]): A scorer that scores the claim level checkworthiness, defaults to `ConstantScorer(score=1.0)`.
     overwrite_entailer (Optional[Scorer]): A scorer that overwrites the default entailer, defaults to `None`, in this case, the default entailer is used which is NLI.
+    cache_dir (Optional[Text]): The directory to cache the entailer, defaults to `None` (no caching). 
     silent: bool: Whether to print the progress information, defaults to `False` (to print).
     """
     ...
@@ -136,3 +138,20 @@ def Core(
 ### Example Usage
 
 For example of using the `core` package with the [FActScore](https://github.com/shmsw25/FActScore) decomposer, please refer to this notebook: [FActScore Example](https://colab.research.google.com/drive/1onaXjc53ucwdBUtfu0nEp9MF9DExzZb0?usp=sharing).
+
+
+### Citation
+
+If you use this package in your research, please cite the following paper:
+
+```bibtex
+@misc{jiang2024corerobustfactualprecision,
+      title={Core: Robust Factual Precision with Informative Sub-Claim Identification}, 
+      author={Zhengping Jiang and Jingyu Zhang and Nathaniel Weir and Seth Ebner and Miriam Wanner and Kate Sanders and Daniel Khashabi and Anqi Liu and Benjamin Van Durme},
+      year={2024},
+      eprint={2407.03572},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2407.03572}, 
+}
+```
