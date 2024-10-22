@@ -1,6 +1,7 @@
 """ Define the cahing mechanism for entailer calling """
 
 import sqlite3
+import hashlib
 import logging
 import os
 from dataclasses import dataclass
@@ -41,9 +42,7 @@ class EntailmentCache:
         self._cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS entailment_cache (
-                premise TEXT,
-                hypothesis TEXT,
-                model_name TEXT,
+                hash_key TEXT PRIMARY KEY,
                 entailment_score REAL
             )
             """
@@ -55,15 +54,54 @@ class EntailmentCache:
         hypothesis: Text,
         model_name: Text
     ) -> Optional[float]:
+        
+        hash_key = self.hash_query(premise, hypothesis, model_name)
+
         self._cursor.execute(
             """
             SELECT entailment_score FROM entailment_cache
-            WHERE premise = ? AND hypothesis = ? AND model_name = ?
+            WHERE hash_key = ?
             """,
-            (premise, hypothesis, model_name)
+            (hash_key,)
         )
         result = self._cursor.fetchone()
         return result[0] if result else None
+    
+    def hash_query(
+        self,
+        premise: Text,
+        hypothesis: Text,
+        model_name: Text
+    ) -> Text:
+        """ """
+        return hashlib.md5(f"{premise}::{hypothesis}::{model_name}".encode()).hexdigest()
+    
+    def batch_query(
+        self,
+        premises: List[Text],
+        hypotheses: List[Text],
+        model_names: Union[Text, List[Text]]
+    ) -> List[Optional[float]]:
+        
+        # query at once, if not found, return None
+        if isinstance(model_names, Text):
+            model_names = [model_names] * len(premises)
+            
+        assert len(premises) == len(hypotheses) == len(model_names), "All lists must have the same length."
+
+        hash_keys = [self.hash_query(premise, hypothesis, model_name) for premise, hypothesis, model_name in zip(premises, hypotheses, model_names)]
+
+        # select both hash_key and entailment_score, then filter out the ones not found
+        self._cursor.execute(
+            """
+            SELECT hash_key, entailment_score FROM entailment_cache
+            WHERE hash_key IN ({})
+            """.format(", ".join(["?"] * len(hash_keys))),
+            hash_keys
+        )
+
+        results = {hash_key: score for hash_key, score in self._cursor.fetchall()}
+        return [results.get(hash_key, None) for hash_key in hash_keys]
     
     def insert(
         self,
@@ -82,22 +120,19 @@ class EntailmentCache:
         insertion_dict = {}
 
         for premise, hypothesis, model_name, entailment_score in zip(premises, hypotheses, model_names, entailment_scores):
-            if (premise, hypothesis, model_name) in insertion_dict:
-                if insertion_dict[(premise, hypothesis, model_name)] != entailment_score:
+            hash_key = self.hash_query(premise, hypothesis, model_name)
+            if hash_key in insertion_dict:
+                if insertion_dict[hash_key] != entailment_score:
                     logger.warning(
                         f"Duplicate entries for premise: {premise}, hypothesis: {hypothesis}, model_name: {model_name} (inconsistent)."
                     )
                 continue
-            insertion_dict[(premise, hypothesis, model_name)] = entailment_score
+            insertion_dict[hash_key] = entailment_score
             
-        data = []
-
-        for (premise, hypothesis, model_name), entailment_score in insertion_dict.items():
-            data.append((premise, hypothesis, model_name, entailment_score))
-
         self._cursor.executemany(
-            """INSERT OR IGNORE INTO entailment_cache (premise, hypothesis, model_name, entailment_score)
-            VALUES (?, ?, ?, ?)""", data
+            """INSERT OR IGNORE INTO entailment_cache (hash_key, entailment_score)
+            VALUES (?, ?)""", 
+            [(key, value) for key, value in insertion_dict.items()]
         )
         self._cache_conn.commit()
         
