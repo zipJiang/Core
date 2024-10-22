@@ -2,3 +2,4 @@ torch
 transformers
 numpy
 scipy
+core Core@git+https://git@github.com/zipJiang/Core.git
