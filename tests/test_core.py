@@ -1,8 +1,8 @@
 from typing import Text, List, Tuple
 from unittest import TestCase
-from core import Core, CoreInstance
-from core.scorers import UNLIConfidenceBoostScorer
-from core.entailers import SoftEntailer, Entailer
+from src.core import Core, CoreInstance
+from src.core.scorers import UNLIConfidenceBoostScorer
+from src.core.entailers import SoftEntailer, Entailer
 
 
 class TestCore(TestCase):
