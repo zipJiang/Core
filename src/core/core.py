@@ -180,12 +180,31 @@ def Core(
         
         # filter out claims that are not entailed
         # TODO: Check whether this binarizer should be optional
+        
+        should_include = set([index for index, entailed in enumerate(sent_ent_results) if entailed > 0.5])
+
         instances_wreal_idx = [
             (tidx, instance)
             for tidx, (instance, entailed) in enumerate(
                 zip(instances, sent_ent_results)
             )
-            if entailed > 0.5
+            if tidx in should_include
+        ]
+
+        sent_checkworthy_scores = [
+            score
+            for sidx, (score, entailed) in enumerate(zip(
+                sent_checkworthy_scores,
+                sent_ent_results
+            )) if sidx in should_include
+        ]
+
+        claim_checkworthy_scores = [
+            score
+            for cidx, (score, entailed) in enumerate(zip(
+                claim_checkworthy_scores,
+                sent_ent_results
+            )) if cidx in should_include
         ]
 
         # create pairwise entailment instances
