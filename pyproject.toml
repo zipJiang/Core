@@ -13,4 +13,5 @@ dependencies = [
     "numpy",
     "scipy",
     "transformers",
+    "openai",
 ]
