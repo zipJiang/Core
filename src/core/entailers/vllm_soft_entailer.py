@@ -5,10 +5,11 @@ that estimates p(hypothesis | premise) by decoding a distribution over
 special label-level tokens and computing a weighted average score.
 """
 
+import asyncio
 import math
 from typing import Text, List, Optional, Dict
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
 
 from .entailer import Entailer
@@ -22,6 +23,11 @@ class VLLMSoftEntailer(Entailer):
     whose softmax-weighted midpoint scores yield a probability in [0, 1].
     This is the inference protocol used by
     ``Zhengping/conditional-probability-regression``.
+
+    All requests within a batch are dispatched concurrently via
+    :class:`openai.AsyncOpenAI`.  The client handles transient failures
+    (connection errors, 429, >=500) with exponential-backoff retries
+    controlled by *max_retries*.
     """
 
     _PROMPT_TEMPLATE = (
@@ -39,6 +45,8 @@ class VLLMSoftEntailer(Entailer):
         cache_dir: Optional[Text] = None,
         top_logprobs: int = 20,
         api_key: Text = "EMPTY",
+        max_retries: int = 3,
+        timeout: float = 60.0,
     ):
         super().__init__(
             model_name=model_name,
@@ -51,9 +59,16 @@ class VLLMSoftEntailer(Entailer):
         self._num_labels = num_labels
         self._top_logprobs = max(top_logprobs, num_labels)
 
-        self._client = OpenAI(
+        # Store client-construction kwargs so that a fresh AsyncOpenAI
+        # client can be created inside each event loop spawned by
+        # asyncio.run().  Re-using one AsyncOpenAI instance across
+        # different loops would bind the underlying httpx connection pool
+        # to a stale loop.
+        self._client_kwargs = dict(
             base_url=self._api_base,
             api_key=api_key,
+            max_retries=max_retries,
+            timeout=timeout,
         )
 
         # Pre-compute label token strings and their midpoint score values.
@@ -123,43 +138,66 @@ class VLLMSoftEntailer(Entailer):
         return score
 
     # ------------------------------------------------------------------
-    # Core batch call
+    # Async internals
+    # ------------------------------------------------------------------
+
+    async def _score_instance(
+        self,
+        client: AsyncOpenAI,
+        instance: EntailerInstance,
+    ) -> float:
+        """Send a single chat-completion request and return the score."""
+        messages = [
+            {
+                "role": "user",
+                "content": self._PROMPT_TEMPLATE.format(
+                    premise=instance.premise,
+                    hypothesis=instance.hypothesis,
+                ),
+            },
+            {
+                "role": "assistant",
+                "content": self._COMPLETION_PREFIX,
+            },
+        ]
+
+        completion = await client.chat.completions.create(
+            model=self._model_name,
+            messages=messages,
+            max_tokens=1,
+            logprobs=True,
+            top_logprobs=self._top_logprobs,
+            temperature=0,
+            extra_body={
+                # vLLM-specific: continue from the assistant prefix
+                # rather than starting a new assistant turn.
+                "continue_final_message": True,
+            },
+        )
+        return self._extract_score(completion)
+
+    async def _async_call_batch(
+        self, instances: List[EntailerInstance]
+    ) -> List[float]:
+        """Fire all requests concurrently inside a single event loop."""
+        async with AsyncOpenAI(**self._client_kwargs) as client:
+            tasks = [
+                self._score_instance(client, inst) for inst in instances
+            ]
+            return list(await asyncio.gather(*tasks))
+
+    # ------------------------------------------------------------------
+    # Core batch call (sync entry-point used by the base class)
     # ------------------------------------------------------------------
 
     def _call_batch(
         self, instances: List[EntailerInstance]
     ) -> List[float]:
-        """Query the VLLM server for each instance and return scores."""
-        scores: List[float] = []
+        """Query the VLLM server for a batch of instances.
 
-        for instance in instances:
-            messages = [
-                {
-                    "role": "user",
-                    "content": self._PROMPT_TEMPLATE.format(
-                        premise=instance.premise,
-                        hypothesis=instance.hypothesis,
-                    ),
-                },
-                {
-                    "role": "assistant",
-                    "content": self._COMPLETION_PREFIX,
-                },
-            ]
-
-            completion = self._client.chat.completions.create(
-                model=self._model_name,
-                messages=messages,
-                max_tokens=1,
-                logprobs=True,
-                top_logprobs=self._top_logprobs,
-                temperature=0,
-                extra_body={
-                    # vLLM-specific: continue from the assistant prefix
-                    # rather than starting a new assistant turn.
-                    "continue_final_message": True,
-                },
-            )
-            scores.append(self._extract_score(completion))
-
-        return scores
+        All requests are dispatched concurrently via ``asyncio.gather``.
+        The :class:`AsyncOpenAI` client automatically retries transient
+        errors (connection failures, HTTP 429 / >=500) with
+        exponential backoff.
+        """
+        return asyncio.run(self._async_call_batch(instances))
